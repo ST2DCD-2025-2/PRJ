@@ -1,0 +1,54 @@
+cache:
+  paths:
+    - node_modules/
+
+variables:
+  DOCKER_IMAGE: maximeboulle/lab2devops
+  DOCKER_TAG: $CI_COMMIT_SHORT_SHA
+
+stages:
+  - build
+  - test
+  - deploy
+
+build-job:
+  stage: build
+  image: node:18
+  script:
+    - echo "Compiling the code..."
+    - npm ci
+    - npm run build
+    - echo "Compile complete."
+
+unit-test-job:
+  stage: test
+  image: node:18
+  script:
+    - echo "Running unit tests..."
+    - npm test
+    - echo "Tests passed successfully."
+
+lint-test-job:
+  stage: test
+  image: node:18
+  script:
+    - echo "Linting code..."
+    - npm run lint
+    - echo "No lint issues found."
+
+deploy-job:
+  stage: deploy
+  image: docker:latest
+  variables:
+    DOCKER_HOST: unix:///var/run/docker.sock
+  script:
+    - echo "Deploying application..."
+    - docker build -t $DOCKER_IMAGE:$DOCKER_TAG .
+    - echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin
+    - docker push $DOCKER_IMAGE:$DOCKER_TAG
+    - docker stop app || true
+    - docker rm app || true
+    - docker run -d -p 8000:80 --name app $DOCKER_IMAGE:$DOCKER_TAG
+    - echo "Application successfully deployed."
+  only:
+    - master
