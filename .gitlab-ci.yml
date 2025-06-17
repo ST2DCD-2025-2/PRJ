@@ -3,13 +3,14 @@ cache:
     - node_modules/
 
 variables:
-  DOCKER_IMAGE: maximeboulle/lab2devops
+  DOCKER_IMAGE: maximeboulle/devops_project
   DOCKER_TAG: $CI_COMMIT_SHORT_SHA
 
 stages:
   - build
   - test
   - deploy
+  - notify
 
 build-job:
   stage: build
@@ -26,7 +27,7 @@ unit-test-job:
   script:
     - echo "Running unit tests..."
     - npm test
-    - echo "Tests passed successfully."
+    - echo "Test passed sucessfully"
 
 lint-test-job:
   stage: test
@@ -52,3 +53,55 @@ deploy-job:
     - echo "Application successfully deployed."
   only:
     - master
+
+notify-success:
+  stage: notify
+  image: curlimages/curl:latest
+  script:
+    - |
+      curl -H "Content-Type: application/json" \
+        -X POST \
+        -d "{
+          \"embeds\": [{
+            \"title\": \"✅ Pipeline Success\",
+            \"description\": \"Pipeline completed successfully!\",
+            \"color\": 3066993,
+            \"fields\": [
+              {\"name\": \"Project\", \"value\": \"$CI_PROJECT_NAME\", \"inline\": true},
+              {\"name\": \"Branch\", \"value\": \"$CI_COMMIT_REF_NAME\", \"inline\": true},
+              {\"name\": \"Commit\", \"value\": \"$CI_COMMIT_SHORT_SHA\", \"inline\": true},
+              {\"name\": \"Author\", \"value\": \"$GITLAB_USER_NAME\", \"inline\": true},
+              {\"name\": \"Pipeline\", \"value\": \"[#$CI_PIPELINE_ID]($CI_PIPELINE_URL)\", \"inline\": true}
+            ],
+            \"timestamp\": \"$(date -u +%Y-%m-%dT%H:%M:%S.000Z)\"
+          }]
+        }" \
+        $DISCORD_WEBHOOK_URL
+  when: on_success
+  allow_failure: true
+
+notify-failure:
+  stage: notify
+  image: curlimages/curl:latest
+  script:
+    - |
+      curl -H "Content-Type: application/json" \
+        -X POST \
+        -d "{
+          \"embeds\": [{
+            \"title\": \"❌ Pipeline Failed\",
+            \"description\": \"Pipeline failed! Please check the logs.\",
+            \"color\": 15158332,
+            \"fields\": [
+              {\"name\": \"Project\", \"value\": \"$CI_PROJECT_NAME\", \"inline\": true},
+              {\"name\": \"Branch\", \"value\": \"$CI_COMMIT_REF_NAME\", \"inline\": true},
+              {\"name\": \"Commit\", \"value\": \"$CI_COMMIT_SHORT_SHA\", \"inline\": true},
+              {\"name\": \"Author\", \"value\": \"$GITLAB_USER_NAME\", \"inline\": true},
+              {\"name\": \"Pipeline\", \"value\": \"[#$CI_PIPELINE_ID]($CI_PIPELINE_URL)\", \"inline\": true}
+            ],
+            \"timestamp\": \"$(date -u +%Y-%m-%dT%H:%M:%S.000Z)\"
+          }]
+        }" \
+        $DISCORD_WEBHOOK_URL
+  when: on_failure
+  allow_failure: true
