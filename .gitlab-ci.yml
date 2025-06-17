@@ -54,6 +54,23 @@ deploy-job:
   only:
     - master
 
+post-deploy-test:
+  stage: deploy
+  image: curlimages/curl:latest
+  script:
+    - |
+      echo "Checking if application is running..."
+      STATUS=$(curl -s -o /dev/null -w "%{http_code}" 192.168.1.159:8000)
+      if [ "$STATUS" -eq 200 ]; then
+        echo "Application is up and running."
+        exit 0
+      else
+        echo "Application returned status code $STATUS"
+        exit 1
+      fi
+  only:
+    - master
+
 notify-success:
   stage: notify
   image: curlimages/curl:latest
